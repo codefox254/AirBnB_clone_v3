@@ -46,10 +46,10 @@ class HBNBCommand(cmd.Cmd):
                 else:
                     try:
                         value = int(value)
-                    except:
+                    except Exception:
                         try:
                             value = float(value)
-                        except:
+                        except Exception:
                             continue
                 new_dict[key] = value
         return new_dict
@@ -78,9 +78,8 @@ class HBNBCommand(cmd.Cmd):
         if args[0] in classes:
             if len(args) > 1:
                 key = args[0] + "." + args[1]
-                obj = models.storage.get(classes[args[0]], args[1])
-                if obj:
-                    print(obj)
+                if key in models.storage.all():
+                    print(models.storage.all()[key])
                 else:
                     print("** no instance found **")
             else:
@@ -89,17 +88,15 @@ class HBNBCommand(cmd.Cmd):
             print("** class doesn't exist **")
 
     def do_destroy(self, arg):
-        """Deletes an instance based on the class and id"""
+        """Delete an instance based on the class and id"""
         args = shlex.split(arg)
         if len(args) == 0:
             print("** class name missing **")
-            return False
-        if args[0] in classes:
+        elif args[0] in classes:
             if len(args) > 1:
                 key = args[0] + "." + args[1]
-                obj = models.storage.get(classes[args[0]], args[1])
-                if obj:
-                    models.storage.delete(obj)
+                if key in models.storage.all():
+                    models.storage.all().pop(key)
                     models.storage.save()
                 else:
                     print("** no instance found **")
@@ -109,95 +106,60 @@ class HBNBCommand(cmd.Cmd):
             print("** class doesn't exist **")
 
     def do_all(self, arg):
-        """Prints all string representations of all instances"""
+        """This Prints string representations of instances"""
         args = shlex.split(arg)
         obj_list = []
         if len(args) == 0:
-            obj_list = [str(obj) for obj in models.storage.all().values()]
+            obj_dict = models.storage.all()
         elif args[0] in classes:
-            obj_list = [str(obj) for obj in models.storage.all(classes[args[0]]).values()]
+            obj_dict = models.storage.all(classes[args[0]])
         else:
             print("** class doesn't exist **")
             return False
+        for key in obj_dict:
+            obj_list.append(str(obj_dict[key]))
         print("[", end="")
         print(", ".join(obj_list), end="")
         print("]")
 
     def do_update(self, arg):
-        """Updates an instance based on the class name and id"""
+        """Update an instance based on the class name, id, attribute & value"""
         args = shlex.split(arg)
+        integers = ["number_rooms", "number_bathrooms", "max_guest",
+                    "price_by_night"]
+        floats = ["latitude", "longitude"]
         if len(args) == 0:
             print("** class name missing **")
-            return False
-        if args[0] in classes:
+        elif args[0] in classes:
             if len(args) > 1:
-                obj = models.storage.get(classes[args[0]], args[1])
-                if not obj:
-                    print("** no instance found **")
-                    return False
-                if len(args) > 2:
-                    if len(args) > 3:
-                        setattr(obj, args[2], self._convert_type(args[3]))
-                        obj.save()
+                k = args[0] + "." + args[1]
+                if k in models.storage.all():
+                    if len(args) > 2:
+                        if len(args) > 3:
+                            if args[0] == "Place":
+                                if args[2] in integers:
+                                    try:
+                                        args[3] = int(args[3])
+                                    except Exception:
+                                        args[3] = 0
+                                elif args[2] in floats:
+                                    try:
+                                        args[3] = float(args[3])
+                                    except Exception:
+                                        args[3] = 0.0
+                            setattr(models.storage.all()[k], args[2], args[3])
+                            models.storage.all()[k].save()
+                        else:
+                            print("** value missing **")
                     else:
-                        print("** value missing **")
+                        print("** attribute name missing **")
                 else:
-                    print("** attribute name missing **")
+                    print("** no instance found **")
             else:
                 print("** instance id missing **")
         else:
             print("** class doesn't exist **")
 
-    def _convert_type(self, value):
-        """Converts a value to the appropriate type"""
-        if value.isdigit():
-            return int(value)
-        try:
-            return float(value)
-        except ValueError:
-            return value
 
-    def do_count(self, arg):
-        """Counts the number of instances of a class"""
-        args = shlex.split(arg)
-        if len(args) == 0:
-            print("** class name missing **")
-            return False
-        if args[0] in classes:
-            count = models.storage.count(classes[args[0]])
-            print(count)
-        else:
-            print("** class doesn't exist **")
-
-    def default(self, arg):
-        """Default method for the command interpreter"""
-        args = arg.split('.')
-        if len(args) < 2:
-            print("*** Unknown syntax: {}".format(arg))
-            return False
-        class_name = args[0]
-        method_call = args[1]
-        if class_name in classes:
-            if method_call.startswith("all()"):
-                self.do_all(class_name)
-            elif method_call.startswith("count()"):
-                self.do_count(class_name)
-            elif method_call.startswith("show("):
-                id = method_call.split('"')[1]
-                self.do_show("{} {}".format(class_name, id))
-            elif method_call.startswith("destroy("):
-                id = method_call.split('"')[1]
-                self.do_destroy("{} {}".format(class_name, id))
-            elif method_call.startswith("update("):
-                params = method_call.split('(')[1].split(')')[0]
-                params = params.replace('"', '').split(', ')
-                self.do_update("{} {} {} {}".format(class_name, params[0], params[1], params[2]))
-            else:
-                print("*** Unknown syntax: {}".format(arg))
-        else:
-            print("*** Unknown syntax: {}".format(arg))
-
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     HBNBCommand().cmdloop()
-
